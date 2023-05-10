@@ -188,7 +188,7 @@ function generatePoints(radius, falls) {
   const material = new THREE.MeshBasicMaterial({ color });
   mesh = new THREE.Mesh(geometry, material);
 
-  mesh.position.set(0,5,0);
+  mesh.position.set(0,5,0); // for debugging
   // mesh.position.set(
   //   Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1),   
   //   5,                       
@@ -203,6 +203,20 @@ function generatePoints(radius, falls) {
   body = new CANNON.Body({ mass, shape });
   body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
   world.addBody(body);
+
+  body.addEventListener("collide", function(e) {
+    if (e.body === bucketBody) {
+      scene.remove(mesh);
+      world.removeBody(body);
+      score++;
+      scoreElement.innerText = "Score : " + score;
+      if (score > highscore) {
+        highscore = score;
+        window.localStorage.setItem("highscore", highscore);
+        highscoreElement.innerText = "Highscore : " + highscore;
+      }
+    }
+  });
 
   load_properties = true
 
@@ -241,7 +255,7 @@ const cannonDebugger = new CannonDebugger(scene, world, {
 
 bucketBody.addEventListener("collision", function (event) {
   if (event.body == body) {
-    score += 1;
+    score++;
     console.log(score);
     scene.remove(mesh);
     world.removeBody(body);
