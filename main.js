@@ -4,7 +4,7 @@ import "./style.css";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import CannonDebugger from 'cannon-es-debugger';
 
-let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore, restart = false, bgSound, touchSound, endSound;
+let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore, restart = false, bgSound, touchSound, endSound, gameOn = false;
 const scene = new THREE.Scene();
 
 const highscoreElement = document.getElementById("highscore");
@@ -18,6 +18,8 @@ world.gravity.set(0, -5, 0);
 world.broadphase = new CANNON.NaiveBroadphase();
 world.solver.iterations = 10;
 
+
+
 init();
 function init(){
   load_properties = false;
@@ -26,7 +28,7 @@ function init(){
   scoreElement.innerText = "Score : " + score;
 
   resultsElement.style.display = "none";
-
+  gameOn = false;
   if (window.localStorage.getItem("highscore") == null) {
     window.localStorage.setItem("highscore", 0);
   }
@@ -68,6 +70,9 @@ class sound {
   }
 }
 
+bgSound = new sound("./assets/play.wav");
+
+
 const camera = new THREE.PerspectiveCamera(
   100,
   window.innerWidth / window.innerHeight,
@@ -88,7 +93,7 @@ top_camera.rotation.x = -Math.PI / 2;
 scene.add(top_camera);
 
 function timer(){
-  let time = 50; //for debugging
+  let time = 60; 
   let timer = setInterval(function(){
     timerElement.innerText = "Time : " + time;
     time--;
@@ -103,11 +108,13 @@ function timer(){
 function start() {
 
 restart = false;
-
+gameOn = true
 bgSound = new sound("./assets/play.wav");
 bgSound.loop();
 bgSound.play();
 bgSound.sound.volume = 0.5;
+
+navigator.keyboard.lock(["Space"]);
 
 instructionsElement.style.display = "none";
 setInterval(function() {
@@ -220,6 +227,7 @@ window.addEventListener("keydown", function (event) {
     bucket.position.z += 0.4;
     } 
   }
+  if(gameOn==false){
   if(event.key === "r" || event.key === "R"){
     event.preventDefault();
     restart = true;
@@ -229,6 +237,7 @@ window.addEventListener("keydown", function (event) {
     event.preventDefault();
     start();
   }
+}
 });
 
 function generatePoints(radius, falls) {
@@ -292,6 +301,7 @@ function gameOver() {
   if (score > highscore) {
     window.localStorage.setItem("highscore", score);
   }
+  gameOn = false;
   highscore = window.localStorage.getItem("highscore");
   highscoreElement.innerText = "Highscore : " + highscore;
   timerElement.style.display = "none";
