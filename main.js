@@ -4,11 +4,7 @@ import "./style.css";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import CannonDebugger from 'cannon-es-debugger';
 
-
-window.localStorage;
-window.focus();
-
-let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore;
+let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore, restart = false, bgSound, touchSound, endSound;
 const scene = new THREE.Scene();
 
 const highscoreElement = document.getElementById("highscore");
@@ -17,9 +13,8 @@ const instructionsElement = document.getElementById("instructions");
 const scoreElement = document.getElementById("score");
 const timerElement = document.getElementById("timer");
 
-
 world = new CANNON.World();
-world.gravity.set(0, -10, 0);
+world.gravity.set(0, -5, 0);
 world.broadphase = new CANNON.NaiveBroadphase();
 world.solver.iterations = 10;
 
@@ -28,6 +23,7 @@ function init(){
   load_properties = false;
   points = [];
   score = 0;
+  scoreElement.innerText = "Score : " + score;
 
   resultsElement.style.display = "none";
 
@@ -37,48 +33,99 @@ function init(){
 
   highscore = window.localStorage.getItem("highscore");
   highscoreElement.innerText = "Highscore : " + highscore;
+ 
 
-  scoreElement.style.display = "none";
-  timerElement.style.display = "none";
+  if(restart == true){
+    bucket.position.set(0, -0.2, 0);
+    scoreElement.style.display = "block";
+    timerElement.style.display = "block";  
+    start();
+  } 
+  else{
+    scoreElement.style.display = "none";
+    timerElement.style.display = "none";
+  }
+}
+
+class sound {
+  constructor(src) {
+    this.sound = document.createElement("audio");
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.style.display = "none";
+    this.sound.volume = 0.5;
+    document.body.appendChild(this.sound);
+    this.loop = function () {
+      this.sound.loop = true;
+    };
+    this.play = function () {
+      this.sound.play();
+    };
+    this.stop = function () {
+      this.sound.pause();
+    };
+  }
 }
 
 const camera = new THREE.PerspectiveCamera(
-  75,
+  100,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
 
+const top_camera = new THREE.PerspectiveCamera(
+  100,
+  window.innerWidth / window.innerHeight,
+  10,
+  1000
+);
+
+top_camera.position.y = 10;
+top_camera.rotation.x = -Math.PI / 2;
+
+scene.add(top_camera);
+
 function timer(){
-  let time = 60;
+  let time = 50; //for debugging
   let timer = setInterval(function(){
     timerElement.innerText = "Time : " + time;
     time--;
     if(time < 0){
       clearInterval(timer);
       gameOver();
+      navigator.keyboard.unlock();
     }
   }, 1000);
 }
 
 function start() {
 
-  instructionsElement.style.display = "none";
-  setInterval(function() {
-    generatePoints(radius, true);
-  }, 2000);
+restart = false;
+
+bgSound = new sound("./assets/play.wav");
+bgSound.loop();
+bgSound.play();
+bgSound.sound.volume = 0.5;
+
+instructionsElement.style.display = "none";
+setInterval(function() {
+  generatePoints(radius, true);
+}, 2000);
+  timer();
+  scoreElement.style.display = "block";
+  timerElement.style.display = "block";
 }
 
-scoreElement.style.display = "flex";
-timerElement.style.display = "flex";
-
-camera.position.z = 4;
+camera.position.z = 7;
+camera.position.y = 3;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
+// const controls = new OrbitControls(camera, renderer.domElement);
 
 const geometry = new THREE.CylinderGeometry(1, 1, 1, 32);
 const material = new THREE.MeshBasicMaterial({
@@ -87,7 +134,7 @@ const material = new THREE.MeshBasicMaterial({
 
 const platform = new THREE.Mesh(
   new THREE.BoxGeometry(10, 1, 10),
-  new THREE.MeshBasicMaterial({ color: 0x22a7f0 })
+  new THREE.MeshBasicMaterial({ color: 0xffa69e })
 );
 platform.position.y = -0.9;
 scene.add(platform);
@@ -95,7 +142,10 @@ scene.add(platform);
 
 const bucket = new THREE.Mesh(geometry, material);
 bucket.position.y = -0.2;
+
 scene.add(bucket);
+
+
 
 const bucketBody = new CANNON.Body({
   mass: 0,
@@ -116,7 +166,7 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
 directionalLight.position.set(10, 20, 0);
 scene.add(directionalLight);
 
-scene.background = new THREE.Color(0x7870ea);
+scene.background = new THREE.Color(0xa94464);
 
 
 world.addBody(bucketBody);
@@ -172,6 +222,7 @@ window.addEventListener("keydown", function (event) {
   }
   if(event.key === "r" || event.key === "R"){
     event.preventDefault();
+    restart = true;
     init();
   }
   if(event.key == " "){
@@ -188,13 +239,14 @@ function generatePoints(radius, falls) {
   const material = new THREE.MeshBasicMaterial({ color });
   mesh = new THREE.Mesh(geometry, material);
 
-  mesh.position.set(0,5,0); // for debugging
-  // mesh.position.set(
-  //   Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1),   
-  //   5,                       
-  //   Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1)     
-  // );
+  // mesh.position.set(0,5,0); // for debugging
+  mesh.position.set(
+    Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1),   
+    5,                       
+    Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1)     
+  );
   scene.add(mesh);
+  points.push(mesh);
 
   const shape = new CANNON.Sphere(radius);
 
@@ -206,6 +258,9 @@ function generatePoints(radius, falls) {
 
   body.addEventListener("collide", function(e) {
     if (e.body === bucketBody) {
+      touchSound = new sound("./assets/touch.wav");
+      touchSound.play();
+      touchSound.sound.volume = 1;
       scene.remove(mesh);
       world.removeBody(body);
       score++;
@@ -226,46 +281,50 @@ function generatePoints(radius, falls) {
   };
 }
 
+const grid_size = 9.8; 
+const grid_divisions = 5; 
+
+const gridHelper = new THREE.GridHelper(grid_size, grid_divisions, 0xa94464, 0xa94464);
+gridHelper.position.y = -0.35;
+scene.add(gridHelper);
+
 function gameOver() {
   if (score > highscore) {
     window.localStorage.setItem("highscore", score);
   }
   highscore = window.localStorage.getItem("highscore");
   highscoreElement.innerText = "Highscore : " + highscore;
+  timerElement.style.display = "none";
+  scoreElement.style.display = "none";
+  resultsElement.style.display = "block";
+  endSound = new sound("./assets/win.wav");
+  endSound.play();
+  bgSound.pause();
 
   resultsElement.innerText =
   "Game Over!" +
   "\n" +
   "Your score is " +
-  (stack.length - 2) +
+  score +
   "\n" +
   "Press R to restart";
 
-  resultsElement.style.display = "block";
-if (stack.length > highscore) {
-  localStorage.setItem("highscore", stack.length);
-  console.log(localStorage.getItem("highscore"));
-  highscore = stack.length - 2;
-  highscoreElement.innerText = "Highscore : " + highscore;
+  if (score > highscore) {
+    localStorage.setItem("highscore", score);
+    console.log(localStorage.getItem("highscore"));
+    highscore = score;
+    highscoreElement.innerText = "Highscore : " + highscore;
+  }
 }
-}
-const cannonDebugger = new CannonDebugger(scene, world, {
-  color: 0x00FF00,
-})
 
-bucketBody.addEventListener("collision", function (event) {
-  if (event.body == body) {
-    score++;
-    console.log(score);
-    scene.remove(mesh);
-    world.removeBody(body);
-    scoreElement.innerText = score;
-}});
+// const cannonDebugger = new CannonDebugger(scene, world, {
+//   color: 0x00FF00,
+// })
 
 function animate() {
   requestAnimationFrame(animate);
   updatePhysics();
-  cannonDebugger.update() 
+  // cannonDebugger.update() 
   render();
 }
 
@@ -284,7 +343,6 @@ function updatePhysics() {
     
     
     if (mesh.position.y < -1) {
-      
       scene.remove(mesh);
       world.removeBody(body);
       load_properties = false;
