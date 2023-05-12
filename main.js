@@ -4,7 +4,7 @@ import "./style.css";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import CannonDebugger from 'cannon-es-debugger';
 
-let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore, restart = false, bgSound, touchSound, endSound, gameOn = false;
+let world, mesh, body, load_properties, mass, radius = 0.2, points, score, highscore, restart = false, bgSound, touchSound, endSound, gameOn = false, pointInterval, bombInterval, bombMesh, bombBody, bombs, time, timerInterval,topCameraHeight,topCameraWidth ;
 const scene = new THREE.Scene();
 
 const highscoreElement = document.getElementById("highscore");
@@ -24,8 +24,12 @@ init();
 function init(){
   load_properties = false;
   points = [];
+  bombs = [];
   score = 0;
   scoreElement.innerText = "Score : " + score;
+  topCameraWidth = window.innerWidth / 4;
+  topCameraHeight = window.innerHeight / 4;
+
 
   resultsElement.style.display = "none";
   gameOn = false;
@@ -81,26 +85,25 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 const top_camera = new THREE.PerspectiveCamera(
-  100,
+  60,
   window.innerWidth / window.innerHeight,
-  10,
+  0.01,
   1000
 );
 
-top_camera.position.y = 10;
-top_camera.rotation.x = -Math.PI / 2;
+top_camera.position.set(0, 10, 0);
+top_camera.lookAt(0, 0, 0);
 
 scene.add(top_camera);
 
 function timer(){
-  let time = 60; 
-  let timer = setInterval(function(){
+   time = 60; 
+   timerInterval = setInterval(function(){
     timerElement.innerText = "Time : " + time;
     time--;
     if(time < 0){
-      clearInterval(timer);
+      clearInterval(timerInterval);
       gameOver();
-      navigator.keyboard.unlock();
     }
   }, 1000);
 }
@@ -114,12 +117,16 @@ bgSound.loop();
 bgSound.play();
 bgSound.sound.volume = 0.5;
 
-navigator.keyboard.lock(["Space"]);
+instructionsElement.style.display = "none"
 
-instructionsElement.style.display = "none";
-setInterval(function() {
-  generatePoints(radius, true);
+pointInterval = setInterval(function() {
+  generatePoints(radius);
 }, 2000);
+
+bombInterval = setInterval(function() {
+  generateBombs(radius*2);
+}, 5000);
+
   timer();
   scoreElement.style.display = "block";
   timerElement.style.display = "block";
@@ -233,14 +240,16 @@ window.addEventListener("keydown", function (event) {
     restart = true;
     init();
   }
+  if(restart == false){
   if(event.key == " "){
     event.preventDefault();
     start();
   }
 }
+}
 });
 
-function generatePoints(radius, falls) {
+function generatePoints(radius) {
   let color;
   color = new THREE.Color(0xFFD700);
 
@@ -290,6 +299,50 @@ function generatePoints(radius, falls) {
   };
 }
 
+function stopGeneratingPoints() {
+  clearInterval(pointInterval);
+  clearInterval(bombInterval);
+}
+
+function generateBombs(radius) {
+  let color;
+  color = new THREE.Color(0x000000);
+
+  const shape = new CANNON.Sphere(radius);
+  mass = 2;
+
+
+  const geometry = new THREE.SphereGeometry(radius, 16, 16);
+  const material = new THREE.MeshBasicMaterial({ color });
+  bombMesh = new THREE.Mesh(geometry, material);
+
+  // bombMesh.position.set(0,5,0); // for debugging
+  bombMesh.position.set(
+    Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1),
+    5,
+    Math.floor(Math.random() * 4) * (Math.round(Math.random()) ? 1 : -1)
+  );
+  scene.add(bombMesh);
+  bombs.push(bombMesh);
+  
+  bombBody = new CANNON.Body({ mass, shape });
+  bombBody.position.set(bombMesh.position.x, bombMesh.position.y, bombMesh.position.z);
+  world.addBody(bombBody);
+
+  bombBody.addEventListener("collide", function(e) {
+    if (e.body === bucketBody) {
+      scene.remove(bombMesh);
+      world.removeBody(bombBody);
+      gameOver();
+    }
+  });
+
+  return {
+    threejs: bombMesh,
+    cannonjs: bombBody
+  };
+}
+
 const grid_size = 9.8; 
 const grid_divisions = 5; 
 
@@ -309,7 +362,10 @@ function gameOver() {
   resultsElement.style.display = "block";
   endSound = new sound("./assets/win.wav");
   endSound.play();
-  bgSound.pause();
+  bgSound.stop();
+  restart = true;
+  stopGeneratingPoints();
+  clearInterval(timerInterval);
 
   resultsElement.innerText =
   "Game Over!" +
@@ -341,7 +397,28 @@ function animate() {
 
 
 function render() {
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
+  renderer.setScissorTest(true);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  renderer.setScissorTest(false);
   renderer.render(scene, camera);
+
+  renderer.setScissor(
+    window.innerWidth / 1.3,
+    window.innerHeight/2 - topCameraHeight/2,
+    topCameraWidth,
+    topCameraHeight
+  );
+  renderer.setViewport(
+    window.innerWidth / 1.3,
+    window.innerHeight/2 - topCameraHeight/2,
+    topCameraWidth,
+    topCameraHeight
+  );
+  renderer.setScissorTest(true);
+  top_camera.aspect = window.innerWidth / window.innerHeight;
+  renderer.render(scene, top_camera);
 }
 
 function updatePhysics() {
@@ -351,15 +428,15 @@ function updatePhysics() {
     mesh.quaternion.copy(body.quaternion);
     bucketBody.position.copy(bucket.position);
     
-    
     if (mesh.position.y < -1) {
       scene.remove(mesh);
       world.removeBody(body);
       load_properties = false;
     }
   }
-  
-  // platform.position.copy(ground.position);
-  // platform.quaternion.copy(ground.quaternion);
+  if(bombMesh != undefined){
+    bombMesh.quaternion.copy(bombBody.quaternion);
+    bombMesh.position.copy(bombBody.position);
+    }
 }
 animate();
