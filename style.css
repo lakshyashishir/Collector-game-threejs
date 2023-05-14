@@ -9,7 +9,7 @@ body {
   color: white;
   font-size: 2em;
   font-weight: bold;
-  top: 30px;
+  top: 2rem;
   left: 45%;
 }
 
@@ -65,4 +65,26 @@ body:hover #instructions {
   font-weight: bold;
   top: 5%;
   right: 5%;
+}
+
+@media only screen and (max-width: 800px) {
+  #highscore {
+    font-size: 1em;
+  }
+
+  #results {
+    font-size: 5em;
+  }
+
+  #timer {
+    font-size: 2em;
+  }
+
+  #score {
+    font-size: 2em;
+  }
+
+  .content {
+    font-size: 2em;
+  }
 }

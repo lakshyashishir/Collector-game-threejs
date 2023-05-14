@@ -197,8 +197,17 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  if(window.innerWidth < 600){
+    scene.remove(top_camera);
+  }
+  else{
+    scene.add(top_camera);
+  }
+  topCameraWidth = window.innerWidth / 4;
+  topCameraHeight = window.innerHeight / 4;
+  renderer.setPixelRatio(window.devicePixelRatio);
   render();
-}
+} 
 
 window.addEventListener("keydown", function (event) {
   if (gameOn) {
